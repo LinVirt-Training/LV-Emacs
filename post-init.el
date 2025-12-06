@@ -1,0 +1,15 @@
+;;;post-init.el --- Customization -*- lexical-binding: t; -*-
+
+(add-to-list 'load-path "~/.config/emacs/modules/")
+(require '00_base)
+(require '01_themes)
+(require '02_treemacs)
+(require '03_ibuffer)
+(require '04_vterm)
+(require '05_pdf)
+(require '06_org)
+(require '07_languages)
+(require '08_ai)
+(require '09_containers)
+(require '10_git)
+(require '11_devops)
