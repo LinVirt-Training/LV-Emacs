@@ -4,7 +4,7 @@
 ;; URL: https://github.com/jamescherti/minimal-emacs.d
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: maint
-;; Version: 1.3.0
+;; Version: 1.3.1
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;;; Commentary:
@@ -57,6 +57,7 @@
 
   ;; Ensure use-package is available
   (require 'use-package))
+  (setq package-vc-allow-build-commands t)
 
 ;;; Minibuffer
 
@@ -106,8 +107,6 @@
 ;; Position underlines at the descent line instead of the baseline.
 (setq x-underline-at-descent-line t)
 
-(setq tramp-verbose 1)
-(setq tramp-completion-reread-directory-timeout 50)
 (setq remote-file-name-inhibit-cache 50)
 
 ;; Automatically rescan the buffer for Imenu entries when `imenu' is invoked
@@ -119,6 +118,15 @@
 
 ;; Disable auto-adding a new line at the bottom when scrolling.
 (setq next-line-add-newlines nil)
+
+;; This setting forces Emacs to save bookmarks immediately after each change.
+;; Benefit: you never lose bookmarks if Emacs crashes.
+(setq bookmark-save-flag 1)
+
+;;; tramp
+
+(setq tramp-verbose 1)
+(setq tramp-completion-reread-directory-timeout 50)
 
 ;;; Files
 
@@ -218,9 +226,7 @@
 (setq recentf-max-saved-items 300) ; default is 20
 (setq recentf-max-menu-items 15)
 (setq recentf-auto-cleanup 'mode)
-
-;; Update recentf-exclude
-(setq recentf-exclude (list "^/\\(?:ssh\\|su\\|sudo\\)?:"))
+(setq recentf-exclude nil)
 
 ;;; saveplace
 
@@ -550,6 +556,18 @@
 (when (fboundp 'minimal-emacs-load-user-init)
   (minimal-emacs-load-user-init "post-init.el"))
 (setq minimal-emacs--success t)
+
+;;; Load my extra packages
+(load-file (concat user-emacs-directory "modules/01_themes.el"))
+(load-file (concat user-emacs-directory "modules/02_treemacs.el"))
+(load-file (concat user-emacs-directory "modules/03_git.el"))
+(load-file (concat user-emacs-directory "modules/04_shell.el"))
+(load-file (concat user-emacs-directory "modules/05_pdf.el"))
+(load-file (concat user-emacs-directory "modules/06_org.el"))
+(load-file (concat user-emacs-directory "modules/07_languages.el"))
+(load-file (concat user-emacs-directory "modules/08_ai.el"))
+(load-file (concat user-emacs-directory "modules/09_containers.el"))
+(load-file (concat user-emacs-directory "modules/10_devops.el"))
 
 ;; Local variables:
 ;; byte-compile-warnings: (not obsolete free-vars)

@@ -238,7 +238,14 @@
           ("src" "»" "∥")
           ("example" "»–" "∥")
           ("quote" "❝" "❞")))
-  :hook (org-mode . org-modern-mode))
+  :hook 
+  (org-mode . org-modern-mode))
+
+(use-package org-auto-tangle
+  :ensure t
+  :delight
+  :config
+  (add-hook 'org-mode-hook 'org-auto-tangle-mode))
 
 (provide '06_org)
 ;;; 06_org.el ends here

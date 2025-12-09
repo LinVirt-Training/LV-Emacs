@@ -5,10 +5,6 @@
 
 ;;; Code:
 
-(use-package treemacs-nerd-icons
-  :config
-  (treemacs-load-theme "nerd-icons"))
-
 (use-package treemacs
   :ensure t
   :config

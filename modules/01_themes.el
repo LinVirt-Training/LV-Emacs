@@ -33,9 +33,6 @@
                       'fixed-pitch nil :family "JetBrains Mono" :height 120 
                       'variable-pitch nil :family "Baskerville" :height 130))
    
-(use-package nerd-icons
-  :ensure t)
-
 (use-package minions
   :ensure t
   :init
