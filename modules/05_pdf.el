@@ -4,10 +4,11 @@
 ;; PDF viewer
 ;; Code:
 
-(use-package reader
-  :vc (:url "https://codeberg.org/divyaranjan/emacs-reader"
-       :make "all"))
+(use-package pdf-tools
+   :ensure t
+   :defer t
+   :config
+       (pdf-tools-install)
+       (setq-default pdf-view-display-size 'fit-page))
 
-
-(provide '05_pdf)
 ;;; 05_pdf.el ends here

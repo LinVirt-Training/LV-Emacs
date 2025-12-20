@@ -1,9 +1,5 @@
-;;; 09_containers.el --- Container Support -*- lexical-binding: t; -*-
+;;; 10_containers.el --- Container Support -*- lexical-binding: t; -*-
 
-;;; Commentary: 
-;; Manage Docker & Kubernetes
-
-;;; Code:
 (use-package docker
   :ensure t
   :bind ("C-c d" . docker))
@@ -20,5 +16,5 @@
   (setq k8s-site-docs-url "https://kubernetes.io/docs/reference/generated/kubernetes-api/"
         k8s-site-docs-version "v1.3"))
 
-(provide '09_containers)
-;;; 09_containers.el ends here
+(provide '10_containers)
+;;; 10_containers.el ends here

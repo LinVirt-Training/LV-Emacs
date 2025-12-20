@@ -1,11 +1,7 @@
 ;;; 06_org.el --- ORG Support -*- lexical-binding: t; -*-
 
-;;; Commentary:
-;; Use Org for agenda, tasklist and documentation
-
-;;; Code::
 (use-package org
-  :ensure t
+  :ensure nil
   :demand t
   :config
   (setq org-src-fontify-natively t
@@ -31,22 +27,7 @@
         org-use-sub-superscripts "{}"
         org-html-postamble nil
         org-confirm-babel-evaluate nil
-        org-src-window-setup 'current-window
-        org-directory (expand-file-name "~/WORK/emacs/org/")
-	    org-agenda-files (list "~/WORK/emacs/org")
-		org-imenu-depth 7
-		org-todo-keywords
-		  '((sequence "TODO(t)" "|" "CANCEL(c@)" "DONE(d!)"))
-		org-use-fast-todo-selection 'expert
-		org-enforce-todo-dependencies t
-		org-enforce-todo-checkbox-dependencies t
-		org-tag-alist nil
-		org-auto-align-tags nil
-		org-tags-column 0
-		org-log-done 'time
-		org-log-into-drawer t
-		org-log-redeadline 'time
-		org-log-reschedule 'time)
+        org-src-window-setup 'current-window)
   :hook
   (org-mode . auto-fill-mode)
   (org-mode . (lambda() (display-line-numbers-mode 0))))
@@ -58,9 +39,9 @@
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((emacs-lisp . t)
-   	 (python     . t)
-	   (shell      . t)
-	   (lilypond   . t))))
+     (python     . t)
+     (shell      . t)
+     (lilypond   . t))))
 
 ;;; Shell prompt in src block
 (defun my-insert-shell-prompt (_backend)
@@ -95,28 +76,6 @@
 :bind (:map global-map
   ("<f9>"   . org-side-tree)))
 
-(use-package ox-pandoc
-  :ensure t
-  :when (executable-find "pandoc")
-  :after ox
-  :init
-	(add-to-list 'org-export-backends 'pandoc)
-	(setq org-pandoc-options
-		  '((standalone . t)
-			(mathjax . t)
-			(variable . "revealjs-url=https://revealjs.com"))))
-
-(use-package ox-epub
-  :ensure t
-  :after (org ox))
-
-(use-package org-contrib
-  :ensure t
-  :after (org)
-  :defer t
-  :init
-  (require 'ox-extra)
-  (ox-extras-activate '(latex-header-blocks ignore-headlines)))
 
 (with-eval-after-load 'ox-latex
 	(add-to-list 'org-latex-classes
@@ -183,43 +142,6 @@
 	  ("kbdal" . "@@html:<kbd>&#8592;</kbd>@@ @@latex:\\LArrow@@")
 	  ("kbdar" . "@@html:<kbd>&&#8594;</kbd>@@ @@latex:\\RArrow@@")))
 
-(use-package calendar
-  :ensure nil
-  :commands (calendar)
-  :config
-  (setq calendar-mark-diary-entries-flag nil
-		calendar-mark-holidays-flag t)
-		calendar-mode-line-format nil
-		calendar-week-start-day 1
-		calendar-date-style 'iso
-		calendar-time-zone-style 'numeric)
-
-(use-package solar
-  :ensure nil
-  :config
-  (setq calendar-latitude 53.08
-		calendar-longitude: 6.04))
-
-(use-package cal-dst
-  :ensure nil
-  :config
-  (setq calendar-standard-time-zone-name "+0100"
-		calendar-daylight-time-zone-name "+0000"))
-
-(use-package appt
-  :ensure nil
-  :commands (appt-activate)
-  :config
-  (setq appt-display-diary nil
-		appt-display-format nil
-		appt-display-mode-line t
-		appt-display-interval 3
-		appt-audible nil
-		appt-warning-time-regexp "appt \\([0-9]+\\)"
-		appt-message-warning-time 6)
-  (with-eval-after-load 'org-agenda
-	(appt-activate 1)))
-
 (use-package org-modern
   :ensure t
   :config
@@ -240,6 +162,12 @@
           ("quote" "❝" "❞")))
   :hook 
   (org-mode . org-modern-mode))
+
+(use-package ox-pandoc
+  :ensure t)
+
+(use-package ox-epub
+  :ensure t)
 
 (use-package org-auto-tangle
   :ensure t

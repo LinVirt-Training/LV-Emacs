@@ -1,9 +1,4 @@
-;;; 03_git.el --- Git Magic  -*- lexical-binding: t; -*-
-
-;;; Commentary: 
-;; Git and Magit configuration
-
-;;; Code:
+;;; 11_projects.el --- Projects and Git Magic  -*- lexical-binding: t; -*-
 
 (use-package ediff
   :ensure nil
@@ -107,24 +102,17 @@
   (require 'log-edit)
   (remove-hook 'log-edit-hook #'log-edit-show-files))
 
-(use-package project
-  :ensure nil
-  :bind
-  (("C-x p ." . project-dired)
-   ("C-x p C-g" . keyboard-quit)
-   ("C-x p <return>" . project-dired)
-   ("C-x p <delete>" . project-forget-project))
-  :config
-  (setopt project-switch-commands
-          '((project-find-file "Find file")
-            (project-find-regexp "Find regexp")
-            (project-find-dir "Find directory")
-            (project-dired "Root dired")
-            (project-vc-dir "VC-Dir")
-            (project-shell "Shell")
-            (keyboard-quit "Quit")))
-  (setq project-vc-extra-root-markers '(".project")
-        project-key-prompt-style t)) 
+(use-package projectile
+  :ensure t
+  :diminish projectile-mode
+  :config 
+   (projectile-mode)
+  :custom 
+   ((projectile-completion-system 'ivy))
+  :bind-keymap
+   ("C-c p" . projectile-command-map)
+  :init
+  (setq projectile-switch-project-action #'projectile-dired))
 
 (use-package magit
   :ensure t
@@ -142,5 +130,5 @@
   :after (treemacs magit)
   :ensure t)
 
-(provide '03_git)
-;;; 03_git.el ends here
+(provide '11_projects)
+;;; 11_projects.el ends here

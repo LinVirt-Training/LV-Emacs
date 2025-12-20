@@ -1,28 +1,12 @@
-;;; 07_languages.el --- Languages Support -*- lexical-binding: t; -*-
-
-;;; Commentary: 
-;; Support for languages
-
-;;; Code:
-
-(use-package smartparens
-  :ensure t
-  :hook
-  (prog-mode-hook text-mode prog-mode)
-  :config
-  (require 'smartparens-config))
+;;; 08_languages.el --- Languages Support -*- lexical-binding: t; -*-
 
 (use-package rainbow-delimiters
   :ensure t
   :hook
-  (prog-mode-hook . rainbow-delimiters-mode))
+   (prog-mode . rainbow-delimiters-mode))
 
 (use-package rainbow-mode
-  :ensure t
-  :config
-  (setq rainbow-x-colors nil)
-  :hook
-  (emacs-lisp-mode text-mode lisp-mode))
+  :ensure t)
 
 (use-package fzf
   :ensure t)
@@ -43,6 +27,15 @@
 
 (use-package dockerfile-mode
   :ensure t)
+
+(use-package auto-virtualenv
+  :ensure t
+  :after projectile
+  :config
+   (setq auto-virtualenv-global-dirs
+     '(".venv" "venv"))
+   (setq auto-virtualenv-verbose t)
+   (auto-virtualenv-setup))
 
 (use-package treesit-auto
   :ensure t
@@ -68,7 +61,7 @@
   :ensure t)
 
 (use-package eglot
-  :ensure t
+  :ensure nil
   :hook 
   (eglot-managed-mode . (lambda () (eglot-inlay-hints-mode -1)))
   ((c-mode c-ts-mode c++-mode c++-ts-mode rust-mode rust-ts-mode yaml-ts-mode) . eglot-ensure)
@@ -78,8 +71,6 @@
          (python-ts-mode . hs-minor-mode)
          (python-ts-mode . (lambda () (set-fill-column 88))))
   :bind (:map eglot-mode-map
-              ("C-c la" . eglot-code-actions)
-              ("C-c lr" . eglot-rename)
               ("C-c lf" . eglot-format)
               ("C-c lc" . eglot-reconnect)
               ("C-c ld" . eldoc))
@@ -119,5 +110,5 @@
   :hook
   (yaml-mode-hook . (lambda () (ansible-mode 1))))
 
-(provide '07_languages)
-;;; 07_languages.el ends here
+(provide '08_languages)
+;;; 08_languages.el ends here
