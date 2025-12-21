@@ -17,7 +17,7 @@
   (setq elisp-flymake-byte-compile-load-path (cons "./" load-path)))
 
 (use-package flyspell
-  :ensure t
+  :ensure nil
   :when (or (executable-find "ispell")
             (executable-find "aspell")
             (executable-find "hunspell"))
