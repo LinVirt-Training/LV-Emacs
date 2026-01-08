@@ -1,14 +1,4 @@
-;;; init.el --- Init -*- lexical-binding: t; -*-
-
-(use-package emacs
-  :ensure nil
-  :config
-   (setq column-number-mode t
-         show-paren-mode    1  
-         use-short-answers  1
-         custom-init (locate-user-emacs-file "custom-init.el")
-         custom-file (locate-user-emacs-file "custom-config.el")
-         use-dialog-box     nil))
+;;; -*- lexical-binding: t -*-
 
 (use-package display-line-numbers
   :ensure nil
@@ -25,21 +15,40 @@
    (savehist-mode 1)   
   :custom 
    (make-backup-files nil)
+
    (auto-save-default nil)
+
    (create-lockfiles  nil)
    (require-final-newline t)
   :hook 
    (before-save . #'delete-trailing-whitespace))
 
-;; More Configuration
-(load-file (concat user-emacs-directory "modules/01_themes.el"))
-(load-file (concat user-emacs-directory "modules/02_completion.el"))
-(load-file (concat user-emacs-directory "modules/03_buffers.el"))
-(load-file (concat user-emacs-directory "modules/04_shell.el"))
-(load-file (concat user-emacs-directory "modules/05_pdf.el"))
-(load-file (concat user-emacs-directory "modules/06_org.el"))
-(load-file (concat user-emacs-directory "modules/07_spell.el"))
-(load-file (concat user-emacs-directory "modules/08_languages.el"))
-(load-file (concat user-emacs-directory "modules/09_ai.el"))
-(load-file (concat user-emacs-directory "modules/10_containers.el"))
-(load-file (concat user-emacs-directory "modules/11_projects.el"))
+;; Terminal and Shell
+(load-file (concat user-emacs-directory "modules/shell.el"))
+
+;; Buffer and Window management
+(load-file (concat user-emacs-directory "modules/buffers.el"))
+
+;; Project Management and Git
+(load-file (concat user-emacs-directory "modules/projects.el"))
+
+;; Emacs Completion Framework
+(load-file (concat user-emacs-directory "modules/completion.el"))
+
+;; Emacs Themes
+(load-file (concat user-emacs-directory "modules/themes.el"))
+
+;; Emacs Org Configuration
+(load-file (concat user-emacs-directory "modules/org.el"))
+
+;; PDF Reader
+(load-file (concat user-emacs-directory "modules/pdf.el"))
+
+;; Support  for Programming Languages
+(load-file (concat user-emacs-directory "modules/languages.el"))
+
+;; Emacs and Ollama
+(load-file (concat user-emacs-directory "modules/ai.el"))
+
+;; Spell
+(load-file (concat user-emacs-directory "modules/spell.el"))

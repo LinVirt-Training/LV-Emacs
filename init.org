@@ -1,0 +1,1093 @@
+#+TITLE: LinVirt Emacs Configuration
+#+AUTHOR: Frederik Vos <info@linvirt.nl>
+#+PROPERTY: header-args :tangle yes
+#+STARTUP: content
+
+* About
+
+This is my personal Emacs configuration, written in [[http://orgmode.org][Org mode]].
+
+** Manual installation
+
+Backup your old configuration, remove it and clone the repository:
+
+#+begin_src sh :tangle no
+git clone https://github.com/linvirt-training/lv-emacs ~/.config/emacs
+#+end_src
+
+#+begin_src emacs-lisp :tangle no
+;; Create init.el
+(require 'org)
+(find-file (concat user-emacs-directory "init.org"))
+(org-babel-tangle)
+(load-file (concat user-emacs-directory "init.el"))
+(byte-compile-file (concat user-emacs-directory "init.el"))
+#+end_src
+
+Lexical scoping for the init and early-init files,
+specified in the header of the configuration files: 
+
+#+begin_src emacs-lisp
+;;; -*- lexical-binding: t -*-
+#+end_src
+
+** Package Management
+
+For installing and managing the lifecycle of the packages, I want to use [[https://github.com/progfolio/elpaca][Elpaca]].
+Let's bootstrap it, in the ~early-init.el~ file.
+
+#+begin_src emacs-lisp :tangle early-init.el
+;;; -*- lexical-binding: t -*-
+    
+;; Disable package.el
+(setq package-enable-at-startup nil)
+
+;; Elpaca
+(defvar elpaca-installer-version 0.11)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                              :ref nil :depth 1 :inherit ignore
+                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                              :build (:not elpaca--activate-package)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                ,@(when-let* ((depth (plist-get order :depth)))
+                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                ,(plist-get order :repo) ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                          "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
+
+;; Install use-package support
+(elpaca elpaca-use-package
+;; Enable use-package :ensure support for Elpaca.
+(elpaca-use-package-mode))
+#+end_src
+
+** Garbage Collector Threshold
+
+The default garbage collection threshold is 800kB, increasing this to 10MB for startup increases speed,
+restore the setting after startup. 
+
+#+begin_src emacs-lisp :tangle early-init.el
+(setq gc-cons-threshold 10000000)
+(add-hook 'after-init-hook
+          (lambda ()
+             (setq gc-cons-threshold 1000000)
+             (message "gc-cons-threshold restored to %S"
+                       gc-cons-threshold)))
+#+end_src
+
+** Custom Settings
+
+Save custom settings in a separate file:
+
+#+begin_src emacs-lisp :tangle early-init.el
+(setq custom-file (make-temp-file "custom-init.el"))
+#+end_src
+
+** Personal Preferences
+
+#+begin_src emacs-lisp :tangle early-init.el
+(use-package emacs
+  :ensure nil
+  :config
+   (setq auto-revert-interval 1            
+         auto-fill-function 'do-auto-fill
+         column-number-mode t
+         create-lockfiles nil              
+         custom-init (locate-user-emacs-file "custom-init.el")
+         echo-keystrokes 0.1               
+         enable-recursive-minibuffers t    
+         fill-column 79                    
+         frame-inhibit-implied-resize 1    
+         frame-resize-pixelwise t          
+         indent-tabs-mode nil              
+         inhibit-startup-screen t          
+         initial-scratch-message nil
+	 menu-bar-mode nil
+         recentf-max-saved-items 10000     
+         ring-bell-function 'ignore
+         scroll-bar-mode nil
+         scroll-margin 1
+         sentence-end-double-space nil
+         show-paren-mode    1  
+         split-height-threshold nil        
+         split-width-threshold 160         
+         tab-width 4
+         tool-bar-mode nil
+         truncate-lines t                  
+         use-dialog-box     nil
+         use-short-answers  1))
+#+end_src
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package display-line-numbers
+  :ensure nil
+  :config
+  :custom 
+   ((display-line-numbers-type 1 "Relative line numbers.")))
+
+;; File Handling
+(use-package files
+  :ensure nil
+  :init
+   (save-place-mode 1) 
+   (recentf-mode 1)    
+   (savehist-mode 1)   
+  :custom 
+   (make-backup-files nil)
+
+   (auto-save-default nil)
+
+   (create-lockfiles  nil)
+   (require-final-newline t)
+  :hook 
+   (before-save . #'delete-trailing-whitespace))
+#+end_src
+
+** Terminal and Shell
+
+#+begin_src emacs-lisp :tangle init.el
+;; Terminal and Shell
+(load-file (concat user-emacs-directory "modules/shell.el"))
+#+end_src
+
+I am using both EShell and VTerm. When using the VTerm terminal, I
+prefer using Bash.
+
+#+begin_src emacs-lisp :tangle modules/shell.el
+(use-package emacs
+  :ensure nil
+  :custom
+   (setq-default explicit-shell-file-name "/bin/bash"))
+
+(use-package vterm
+  :ensure t
+  :config
+   (setq vterm-shell "/bin/bash"))
+#+end_src
+
+** Buffer and Window Management
+
+Ibuffer makes it possible to group buffers, and it looks better:
+
+#+begin_src emacs-lisp :tangle init.el
+;; Buffer and Window management
+(load-file (concat user-emacs-directory "modules/buffers.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle modules/buffers.el
+(use-package ibuffer
+  :init
+   (setq-default ibuffer-saved-filter-groups
+                 `(("Default"
+                   ("rg" (name . "\*rg.*\*"))
+                   ("Dired" (mode . dired-mode))
+                   ("Scratch" (name . "\*scratch.*"))
+                   ("Temporary" (name . "\*.*\*")))))
+   (setq ibuffer-show-empty-filter-groups nil)
+  :config
+   (define-key ibuffer-mode-map (kbd "M-o") nil)
+   (global-set-key (kbd "C-x C-b") 'ibuffer)
+   (add-hook 'ibuffer-mode-hook #'(lambda () (ibuffer-auto-mode 1))))
+#+end_src 
+
+Give buffers distinct names:
+
+#+begin_src emacs-lisp :tangle modules/buffers.el
+(use-package uniquify
+  :ensure nil
+  :custom
+   (uniquify-buffer-name-style 'forward))
+#+end_src
+
+Automatic resizing of the active window
+
+#+begin_src emacs-lisp :tangle modules/buffers.el
+(use-package golden-ratio
+  :ensure t)
+#+end_src 
+
+** Project Management
+
+Projectile is a project interaction library for Emacs.
+
+#+begin_src emacs-lisp :tangle init.el
+;; Project Management and Git
+(load-file (concat user-emacs-directory "modules/projects.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle modules/projects.el
+(use-package projectile
+  :ensure t
+  :diminish projectile-mode
+  :config 
+   (projectile-mode)
+  :custom 
+   ((projectile-completion-system 'ivy))
+  :bind-keymap
+   ("C-c p" . projectile-command-map)
+  :init
+  (setq projectile-switch-project-action #'projectile-dired))
+#+end_src 
+
+Find file in project:
+
+#+begin_src emacs-lisp :tangle modules/projects.el
+(use-package find-file-in-project
+  :ensure t
+  :init
+   (ivy-mode 1))
+#+end_src 
+
+Of course, we want Magit for Git support:
+
+#+begin_src emacs-lisp :tangle modules/projects.el
+(use-package transient 
+  :ensure t)
+
+(use-package magit
+  :ensure t
+  :bind 
+  (("C-x g" . magit-status)))
+
+(use-package magit-repos
+  :ensure nil 
+  :commands (magit-list-repositories)
+  :init
+  (setq magit-repository-directories
+        '(("~/NextCloud/Documents/Training" . 1))))
+#+end_src
+
+A file manager with Magit support:
+
+#+begin_src emacs-lisp :tangle modules/projects.el
+(use-package treemacs
+  :ensure t
+  :defer t
+  :init
+   (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :config
+   (progn
+     (setq treemacs-buffer-name-function            #'treemacs-default-buffer-name
+           treemacs-buffer-name-prefix              " *Treemacs-Buffer-"
+           treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+           treemacs-deferred-git-apply-delay        0.5
+           treemacs-directory-name-transformer      #'identity
+           treemacs-display-in-side-window          t
+           treemacs-eldoc-display                   'simple
+           treemacs-file-event-delay                2000
+           treemacs-file-extension-regex            treemacs-last-period-regex-value
+           treemacs-file-follow-delay               0.2
+           treemacs-file-name-transformer           #'identity
+           treemacs-follow-after-init               t
+           treemacs-expand-after-init               t
+           treemacs-find-workspace-method           'find-for-file-or-pick-first
+           treemacs-git-command-pipe                ""
+           treemacs-goto-tag-strategy               'refetch-index
+           treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+           treemacs-hide-dot-git-directory          t
+           treemacs-hide-dot-jj-directory           t
+           treemacs-indentation                     2
+           treemacs-indentation-string              " "
+           treemacs-is-never-other-window           nil
+           treemacs-max-git-entries                 5000
+           treemacs-missing-project-action          'ask
+           treemacs-move-files-by-mouse-dragging    t
+           treemacs-move-forward-on-expand          nil
+           treemacs-no-png-images                   nil
+           treemacs-no-delete-other-windows         t
+           treemacs-project-follow-cleanup          nil
+           treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+           treemacs-position                        'left
+           treemacs-read-string-input               'from-child-frame
+           treemacs-recenter-distance               0.1
+           treemacs-recenter-after-file-follow      nil
+           treemacs-recenter-after-tag-follow       nil
+           treemacs-recenter-after-project-jump     'always
+           treemacs-recenter-after-project-expand   'on-distance
+           treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+           treemacs-project-follow-into-home        nil
+           treemacs-show-cursor                     nil
+           treemacs-show-hidden-files               t
+           treemacs-silent-filewatch                nil
+           treemacs-silent-refresh                  nil
+           treemacs-sorting                         'alphabetic-asc
+           treemacs-select-when-already-in-treemacs 'move-back
+           treemacs-space-between-root-nodes        t
+           treemacs-tag-follow-cleanup              t
+           treemacs-tag-follow-delay                1.5
+           treemacs-text-scale                      nil
+           treemacs-user-mode-line-format           nil
+           treemacs-user-header-line-format         nil
+           treemacs-wide-toggle-width               70
+           treemacs-width                           35
+           treemacs-width-increment                 1
+           treemacs-width-is-initially-locked       t
+           treemacs-workspace-switch-cleanup        nil))
+     (treemacs-follow-mode t)
+     (treemacs-filewatch-mode t)
+     (treemacs-fringe-indicator-mode 'always)
+     (autoload 'treemacs-define-doubleclick-action "treemacs-mouse-interface" nil nil)
+  :bind
+       (("M-0"       . treemacs-select-window)
+        ("C-x t 1"   . treemacs-delete-other-windows)
+        ("C-x t t"   . treemacs)
+        ("C-x t d"   . treemacs-select-directory)
+        ("C-x t B"   . treemacs-bookmark)
+        ("C-x t C-t" . treemacs-find-file)
+        ("C-x t M-t" . treemacs-find-tag)))
+
+(use-package treemacs-projectile
+  :after (treemacs projectile)
+  :ensure t)
+
+(use-package treemacs-icons-dired
+  :hook (dired-mode . treemacs-icons-dired-enable-once)
+  :ensure t)
+
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :ensure t)
+#+end_src
+
+An easy way to view version differences:
+
+#+begin_src emacs-lisp :tangle modules/projects.el
+(use-package ediff
+  :ensure nil
+  :commands (ediff-buffers ediff-files ediff-buffers3 ediff-files3)
+  :init
+   (setq ediff-split-window-function 'split-window-horizontally
+         ediff-window-setup-function 'ediff-setup-windows-plain)
+  :config
+   (setq ediff-keep-variants nil
+         ediff-make-buffers-readonly-at-startup nil
+         ediff-merge-revisions-with-ancestor t
+         ediff-show-clashes-only t))
+
+(use-package diff-mode
+  :ensure nil
+  :defer t
+  :config
+   (setq diff-default-read-only t
+         diff-advance-after-apply-hunk t
+         diff-update-on-the-fly t
+         diff-refine t
+         diff-font-lock-prettify t 
+         diff-font-lock-syntax nil))
+#+end_src
+
+** Auto-completion Frameworks
+
+#+begin_src emacs-lisp :tangle init.el
+;; Emacs Completion Framework
+(load-file (concat user-emacs-directory "modules/completion.el"))
+#+end_src
+
+Company is a modular text completion framework for GNU Emacs, In other
+words, it is a package for retrieving, manipulating, and displaying
+text completion candidates. It aims to assist developers, writers, and
+scientists during code and text writing.
+
+Company-box is a company front-end with icons.
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package company
+  :ensure t
+  :config
+   (add-hook 'after-init-hook 'global-company-mode))
+
+(use-package company-box
+  :ensure t
+  :diminish t
+  :hook 
+   (company-mode . company-box-mode))`
+#+end_src 
+
+Ivy is for quick and easy selection from a list. When Emacs prompts
+for a string from a list of several possible choices, Ivy springs into
+action to assist in narrowing and picking the right string from a vast
+number of choices.  
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package ivy
+  :ensure t
+  :init
+   (ivy-mode 1)
+  :config
+   (setq ivy-use-virtual-buffers t
+         enable-recursive-minibuffers t
+         ivy-display-style 'fancy
+         ivy-re-builders-alist '((ivy-bibtex . ivy--regex-ignore-order)
+                                 (t . ivy--regex-fuzzy)))
+  :custom
+   (ivy-count-format "(%d/%d) ")
+   (ivy-use-virtual-buffers t)
+  :bind
+   (("C-s" . 'swiper-isearch)
+    ("C-c C-r" . ivy-resume)
+    ("C-x B" . ivy-switch-buffer-other-window)
+    ("C-r" . 'swiper-backward)))
+#+end_src
+
+Councel is a collection of Ivy-enhanced versions of common Emacs commands.
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package counsel
+  :ensure t
+  :after ivy
+  :init
+   (counsel-mode t)
+  :bind
+   (("C-x C-r" . 'counsel-recentf)
+    ("C-c i" . 'counsel-imenu)
+    ("C-c c" . 'counsel-org-capture)
+    ("C-x b" . 'ivy-switch-buffer))
+  :config
+  (setq counsel-grep-base-command "rg -S -M 120 --no-heading --line-number --color never %s %s"))
+#+end_src
+
+Prescient is a library which sorts and filters lists of candidates, such as appear when you use a package like Ivy or Company
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package prescient
+  :ensure t
+  :config
+   (prescient-persist-mode))
+
+(use-package ivy-prescient
+  :ensure t
+  :config
+   (ivy-prescient-mode))
+#+end_src
+
+Hydra is a package for GNU Emacs that can be used to tie related
+commands into a family of short bindings with a common prefix.
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package ivy-hydra
+  :ensure t)
+#+end_src
+
+A more friendly interface for Ivy:
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package ivy-rich
+  :ensure t
+  :after ivy
+  :custom
+   (ivy-virtual-abbreviate 'full
+                           ivy-rich-switch-buffer-align-virtual-buffer t
+                           ivy-rich-path-style 'abbrev)
+  :config
+   (ivy-rich-mode 1)
+   (ivy-set-display-transformer 'ivy-switch-buffer
+                               'ivy-rich-switch-buffer-transformer))
+#+end_src
+
+which-key is a minor mode for Emacs that displays the key bindings
+following your currently entered incomplete command (a prefix) in a
+popup. 
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package which-key
+  :diminish
+  :init
+   (setq which-key-idle-delay 1.0)
+   (which-key-mode))
+#+end_src
+
+Swiper is an Ivy-enhanced alternative to Isearch.
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package swiper
+  :ensure t
+  :after ivy
+  :bind 
+   (("C-s" . swiper)
+    ("C-r" . swiper)))
+#+end_src
+
+Helpful is an alternative to the built-in Emacs help, providing more
+contextual information, and it integrates with Ivy.
+
+#+begin_src emacs-lisp :tangle modules/completion.el
+(use-package helpful
+  :ensure t
+  :commands
+   (helpful-callable
+    helpful-variable
+    helpful-key
+    helpful-command
+    helpful-at-point
+    helpful-function)
+  :bind
+   ([remap describe-command] . helpful-command)
+   ([remap describe-function] . helpful-callable)
+   ([remap describe-key] . helpful-key)
+   ([remap describe-symbol] . helpful-symbol)
+   ([remap describe-variable] . helpful-variable)
+  :custom
+  (helpful-max-buffers 7)
+  :config
+   (setq counsel-describe-function-function #'helpful-callable
+         counsel-describe-variable-function #'helpful-variable))
+  #+end_src
+
+** Theming
+
+#+begin_src emacs-lisp :tangle init.el
+;; Emacs Themes
+(load-file (concat user-emacs-directory "modules/themes.el"))
+#+end_src
+
+Let's start with font definition:
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package emacs
+  :init
+    (add-to-list 'default-frame-alist '(font . "JetBrains Mono-15")))
+#+end_src
+
+Unclutter modeline:
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package diminish
+  :ensure t)
+#+end_src
+
+Tabs and ribbons for the mode-line:
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package moody
+  :ensure t
+  :config
+   (setq x-underline-at-descent-line t)
+   (moody-replace-mode-line-buffer-identification)
+   (moody-replace-vc-mode))
+#+end_src
+
+Put minor modes in a menu, instead of the modeline
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package minions
+  :ensure t
+  :demand t
+  :config
+   (minions-mode 1))
+#+end_src
+
+Distiinguish real buffers from unreal ones
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package solaire-mode
+  :ensure t
+  :demand t
+  :config
+   (solaire-global-mode +1))
+#+end_src
+
+Icons:
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package nerd-icons 
+  :ensure t)
+
+(use-package nerd-icons-ivy-rich
+  :ensure t
+  :init
+   (nerd-icons-ivy-rich-mode 1)
+   (ivy-rich-mode 1))
+
+(use-package treemacs-nerd-icons
+  :ensure t
+  :config
+  (treemacs-nerd-icons-config))
+#+end_src
+
+And finally, a beautiful theme set:
+
+#+begin_src emacs-lisp :tangle modules/themes.el
+(use-package ef-themes
+  :ensure t
+  :init
+   (ef-themes-take-over-modus-themes-mode 1)
+  :bind
+   (("<f5>" . modus-themes-rotate)
+    ("C-<f5>" . modus-themes-select)
+    ("M-<f5>" . modus-themes-load-random))
+  :config
+   (setq modus-themes-mixed-fonts t
+         modus-themes-italic-constructs t)
+   (modus-themes-load-theme 'ef-maris-dark))
+#+end_src 
+
+** Emacs ORG configuration
+
+#+begin_src emacs-lisp :tangle init.el
+;; Emacs Org Configuration
+(load-file (concat user-emacs-directory "modules/org.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package org
+  :ensure nil
+  :demand t
+  :config
+   (setq org-src-fontify-natively t
+         org-src-tab-acts-natively t
+         org-src-preserve-indentation t
+         org-fontify-done-headline t
+         org-fontify-quote-and-verse-blocks t
+         org-fontify-whole-heading-line t
+         org-hide-leading-stars t
+         org-hide-emphasis-markers t
+         org-pretty-entities t
+         org-edit-src-content-indentation 0
+         org-src-tab-acts-natively t
+         org-return-follows-link t
+         org-auto-align-tags nil
+         org-tags-column 0
+         org-catch-invisible-edits 'show-and-error
+         org-special-ctrl-a/e t
+         org-insert-heading-respect-content t
+         org-hide-emphasis-markers t
+         org-highlight-latex-and-related '(native)
+         org-pretty-entities t
+         org-use-sub-superscripts "{}"
+         org-html-postamble nil
+         org-confirm-babel-evaluate nil
+         org-src-window-setup 'current-window)
+  :hook
+   (org-mode . auto-fill-mode)
+   (org-mode . (lambda() (display-line-numbers-mode 0)))
+   (org-mode . (lambda () (org-indent-mode -1))))
+#+end_src
+
+Support for different languages in org is provided by Babel
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package org
+  :ensure nil
+  :demand t
+  :config
+   (setq org-src-fontify-natively t
+         org-src-tab-acts-natively t
+         org-src-preserve-indentation t
+         org-fontify-done-headline t
+         org-fontify-quote-and-verse-blocks t
+         org-fontify-whole-heading-line t
+         org-hide-leading-stars t
+         org-hide-emphasis-markers t
+         org-pretty-entities t
+         org-edit-src-content-indentation 0
+         org-src-tab-acts-natively t
+         org-return-follows-link t
+         org-auto-align-tags nil
+         org-tags-column 0
+         org-catch-invisible-edits 'show-and-error
+         org-special-ctrl-a/e t
+         org-insert-heading-respect-content t
+         org-hide-emphasis-markers t
+         org-highlight-latex-and-related '(native)
+         org-pretty-entities t
+         org-use-sub-superscripts "{}"
+         org-html-postamble nil
+         org-confirm-babel-evaluate nil
+         org-src-window-setup 'current-window)
+  :hook
+   (org-mode . auto-fill-mode)
+   (org-mode . (lambda() (display-line-numbers-mode 0)))
+   (org-mode . (lambda () (org-indent-mode -1))))
+#+end_src
+
+Support for different languages in org is provided by Babel
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package ob
+  :ensure nil
+  :after org
+  :config
+   (org-babel-do-load-languages
+    'org-babel-load-languages
+    '((emacs-lisp . t)
+      (python     . t)
+      (shell      . t)
+      (lilypond   . t))))
+#+end_src 
+
+Htmlize converts the buffer text and the associated decorations to
+HTML, used by some convertors.
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package htmlize
+  :ensure t)
+#+end_src
+
+Latex support:
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package org
+  :config
+   (customize-set-value 'org-latex-with-hyperref nil)
+   (setq org-latex-listings 'engraved
+    org-latex-pdf-process (list "latexmk -f -lualatex %f")
+    org-latex-pdf-process '("latexmk -shell-escape -f -lualatex %f")
+    org-export-global-macros
+        '(
+          ("kbd" . "@@html:<kbd>$1</kbd>@@ @@latex:\\keystroke{$1}@@")
+          ("kbdt" . "@@html:<kbd>TAB</kbd>@@ @@latex:\\Tab@@")
+          ("kbda" . "@@html:<kbd>Alt</kbd>@@ @@latex:\\Alt@@")
+          ("kbde" . "@@html:<kbd>Enter</kbd>@@ @@latex:\\Enter@@")
+          ("kbdc" . "@@html:<kbd>Esc</kbd>@@ @@latex:\\Esc@@")
+          ("kbdr" . "@@html:<kbd>Ctrl</kbd>@@ @@latex:\\Ctrl@@")
+          ("kbdad" . "@@html:<kbd>&#8595;</kbd>@@ @@latex:\\DArrow@@")
+          ("kbdau" . "@@html:<kbd>&#8593;</kbd>@@ @@latex:\\UArrow@@")
+          ("kbdal" . "@@html:<kbd>&#8592;</kbd>@@ @@latex:\\LArrow@@")
+          ("kbdar" . "@@html:<kbd>&&#8594;</kbd>@@ @@latex:\\RArrow@@")))
+  :init
+   (with-eval-after-load 'ox-latex
+        (add-to-list 'org-latex-classes
+                '("koma-book"
+                  "\\documentclass{scrbook}"
+                 ("\\chapter{%s}" . "\\chapter{%s}")
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
+        (add-to-list 'org-latex-classes
+                '("scrbook"
+                  "\\documentclass{scrbook}"
+                 ("\\chapter{%s}" . "\\chapter{%s}")
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")))
+        (add-to-list 'org-latex-classes
+                '("memoir"
+                  "\\documentclass{memoir}"
+                 ("\\chapter{%s}" . "\\chapter*{%s}")
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))))
+   (with-eval-after-load 'ox-beamer
+        (add-to-list 'org-latex-classes
+                '("beamer"
+                  "\\documentclass\[presentation\]{beamer}"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")))
+        (add-to-list 'org-beamer-environments-extra
+                '("onlyenv" "O" "\\begin{onlyenv}%a" "\\end{onlyenv}"))))
+
+(use-package citeproc
+  :ensure t
+  :after (org)
+  :defer t)
+#+end_src
+
+Syntax highlighting:
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package engrave-faces
+  :ensure t
+  :init
+   (defun my-insert-shell-prompt (_backend)
+   (org-babel-map-src-blocks nil
+        (let (
+                  (lang lang)
+                  (beg-body beg-body)
+                  (end-body (copy-marker end-body))
+                  (shell-langs '("sh" "shell"))
+                  (prefix "$ ")
+                  (is-contd-from-prev-line nil)) 
+          (when (member lang shell-langs)
+                (goto-char beg-body)
+                (skip-chars-forward "\n\s" (marker-position end-body))
+                (while (< (point) (marker-position end-body))
+                  (if (not is-contd-from-prev-line) 
+                                (insert prefix))
+                  (end-of-line)
+                  (if (eq ?\\ (char-after (- (point) 1))) 
+                          (setq is-contd-from-prev-line t)
+                        (setq is-contd-from-prev-line nil))
+                  (skip-chars-forward "\n\s" (marker-position end-body))))))))
+#+end_src
+
+More exporters:
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package ox-pandoc
+  :ensure t)
+
+(use-package ox-epub
+  :ensure t)
+#+end_src
+
+Auto tangle:
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package org-auto-tangle
+  :ensure t
+  :delight
+  :config
+  (add-hook 'org-mode-hook 'org-auto-tangle-mode))
+#+end_src 
+
+Modern look-and-feel:
+
+#+begin_src emacs-lisp :tangle modules/org.el
+(use-package org-modern
+  :ensure t
+  :config
+   (setq org-modern-keyword
+        '((t . t)
+          ("bibliography" . "<U+F405>")
+          ("cite_export" . "<U+F405>⮭")
+          ("include" . "⇤")
+          ("setupfile" . "⇚")
+          ("header" . "›")
+          ("caption" . "☰")
+          ("name" . "⁝")
+          ("results" . "∴")))
+   (setq org-modern-block-name
+        '((t . t)
+          ("src" "»" "∥")
+          ("example" "»–" "∥")
+          ("quote" "❝" "❞")))
+  :hook 
+   (org-mode . org-modern-mode))
+#+end_src
+
+PDF Reader
+
+#+begin_src emacs-lisp :tangle init.el
+;; PDF Reader
+(load-file (concat user-emacs-directory "modules/pdf.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle modules/pdf.el
+(use-package pdf-tools
+   :ensure t
+   :defer t
+   :config
+       (pdf-tools-install)
+       (setq-default pdf-view-display-size 'fit-page))
+#+end_src
+
+** Programming Languages
+
+Emacs is the best IDE: 
+
+#+begin_src emacs-lisp :tangle init.el
+;; Support  for Programming Languages
+(load-file (concat user-emacs-directory "modules/languages.el"))
+#+end_src
+
+Languages like Python and Yaml are using indentation, identation
+guides are often helpful.
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package indent-bars
+  :ensure t
+  :custom
+   (indent-bars-no-descend-lists t) 
+   (indent-bars-treesit-support t)
+   (indent-bars-treesit-ignore-blank-lines-types '("module"))
+   (indent-bars-treesit-scope '((python function_definition class_definition for_statement
+           if_statement with_statement while_statement)))
+  :hook 
+   ((python-mode yaml-mode) . indent-bars-mode))
+#+end_src 
+
+Let's start with Markdown Mode support:
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package markdown-mode
+  :ensure t
+  :mode
+   ("README\\.md\\'" . gfm-mode)
+   ("\\.md\\'" . markdown-mode)
+   ("\\.Rmd\\'" . markdown-mode)
+   ("\\.markdown\\'" . markdown-mode)
+  :init
+   (setq markdown-command "multimarkdown")
+  :config
+    (setq markdown-enable-math t
+         markdown-fontify-code-blocks-natively t)
+  :bind 
+   (:map markdown-mode-map
+         ("C-c C-e" . markdown-do)
+         ("M-p" . markdown-previous-visible-heading)
+         ("M-n" . markdown-next-visible-heading)))
+#+end_src
+
+YAML Support
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package yaml-pro-ts-mode
+  :ensure nil
+  :config
+   (add-to-list 'global-treesit-auto-modes '(not org-mode))
+   (setq treesit-auto-install t)
+   (global-treesit-auto-mode)
+  :hook
+   ((yaml-mode . highlight-indentation-mode)
+    (yaml-ts-mode . highlight-indentation-mode)
+    (yaml-mode . yaml-pro-ts-mode)))
+#+end_src 
+
+Emacs has out of the box support for treesitter, treesit-auto makes it
+
+easy to download the language libraries:
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package treesit-auto
+  :ensure t
+  :custom
+   (treesit-auto-install 'prompt)
+  :config
+   (treesit-auto-add-to-auto-mode-alist 'all)
+   (global-treesit-auto-mode))
+
+(use-package emacs
+  :ensure nil
+  :custom
+   (add-to-list 'major-mode-remap-alist '((python-mode . python-ts-mode)
+                                           yaml-mode . yaml-ts-mode)))
+#+end_src
+
+Support for snippets:
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package yasnippet
+  :ensure t
+  :config
+   (yas-global-mode t)
+   (yas-reload-all)
+  :diminish
+   yas-minor-mode)
+
+(use-package yasnippet-snippets
+  :ensure t)
+#+end_src 
+
+An API for working with files and directories:
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package f
+  :ensure t)
+#+end_src
+
+And we need an LSP Client, lsp-mode is fast and works nicely with Ivy
+and TreeMacs
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package lsp-mode
+  :ensure t
+  :init
+   (setq lsp-keymap-prefix "C-c l")
+  :hook ((python-mode . lsp)
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands
+   lsp)
+
+(use-package lsp-ivy
+  :ensure t
+  :commands
+   lsp-ivy-workspace-symbol)
+
+(use-package lsp-treemacs
+  :ensure t
+  :commands
+   lsp-treemacs-errors-list)
+#+end_src   
+
+** Emacs and Ollama
+
+I love to run AI locally... And the combination of Ollama and Ellama
+is gold.
+
+#+begin_src emacs-lisp :tangle init.el
+;; Emacs and Ollama
+(load-file (concat user-emacs-directory "modules/ai.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle modules/ai.el
+(use-package ellama
+  :ensure t
+  :bind ("C-c e" . ellama)
+  :hook (org-ctrl-c-ctrl-c-final . ellama-chat-send-last-message)
+  :init
+  (setopt ellama-language "English")
+  (require 'llm-ollama)
+  (setopt ellama-provider
+          (make-llm-ollama
+           :chat-model "llama3:latest"
+           :embedding-model "nomic-embed-text"
+           :default-chat-non-standard-params '(("num_ctx" . 8192))))
+  (setopt ellama-summarization-provider
+          (make-llm-ollama
+           :chat-model "qwen3:latest"
+           :embedding-model "nomic-embed-text"
+           :default-chat-non-standard-params '(("num_ctx" . 32768))))
+  (setopt ellama-coding-provider
+          (make-llm-ollama
+           :chat-model "qwen3-coder:latest"
+           :embedding-model "nomic-embed-text"
+           :default-chat-non-standard-params '(("num_ctx" . 32768))))
+  (setopt ellama-providers
+      '(("mixtral" . (make-llm-ollama
+                          :chat-model "mixtral:latest"
+                          :embedding-model "mixtral:latest"))))
+  (setopt ellama-chat-display-action-function #'display-buffer-full-frame)
+  (setopt ellama-instant-display-action-function #'display-buffer-at-bottom)
+  :config
+  (ellama-context-header-line-global-mode +1)
+  (ellama-session-header-line-global-mode +1)
+  (advice-add 'pixel-scroll-precision :before #'ellama-disable-scroll)
+  (advice-add 'end-of-buffer :after #'ellama-enable-scroll))
+#+end_src
+
+** Spell
+
+#+begin_src emacs-lisp :tangle init.el
+;; Spell
+(load-file (concat user-emacs-directory "modules/spell.el"))
+#+end_src
+
+Jinx is, in my personal opinion the fastest frontend for Enchant
+
+#+begin_src emacs-lisp :tangle modules/spell.el
+(use-package jinx
+  :ensure t
+  :hook
+   (emacs-startup . global-jinx-mode)
+  :bind
+   (("M-$" . jinx-correct)
+         ("C-M-$" . jinx-languages)))
+#+end_src 
