@@ -170,6 +170,13 @@ Save custom settings in a separate file:
    (before-save . #'delete-trailing-whitespace))
 #+end_src
 
+Operate copy and kill on the current line if no region is active:
+
+#+begin_src emacs-lisp :tangle init.el
+(use-package whole-line-or-region
+  :ensure t
+)
+#+end_src 
 ** Terminal and Shell
 
 #+begin_src emacs-lisp :tangle init.el

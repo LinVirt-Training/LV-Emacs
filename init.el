@@ -23,6 +23,10 @@
   :hook 
    (before-save . #'delete-trailing-whitespace))
 
+(use-package whole-line-or-region
+  :ensure t
+)
+
 ;; Terminal and Shell
 (load-file (concat user-emacs-directory "modules/shell.el"))
 
