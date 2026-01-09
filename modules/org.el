@@ -156,7 +156,8 @@
                   (if (eq ?\\ (char-after (- (point) 1))) 
                           (setq is-contd-from-prev-line t)
                         (setq is-contd-from-prev-line nil))
-                  (skip-chars-forward "\n\s" (marker-position end-body))))))))
+                  (skip-chars-forward "\n\s" (marker-position end-body)))))))
+   (add-hook 'org-export-before-parsing-hook #'my-insert-shell-prompt))
 
 (use-package ox-pandoc
   :ensure t)
