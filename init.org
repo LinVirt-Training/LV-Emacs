@@ -7,7 +7,7 @@
 
 This is my personal Emacs configuration, written in [[http://orgmode.org][Org mode]].
 
-** Manual installation
+** Manual yinstallation
 
 Backup your old configuration, remove it and clone the repository:
 
@@ -962,6 +962,14 @@ YAML Support
     (yaml-mode . yaml-pro-ts-mode)))
 #+end_src 
 
+INI Format
+
+#+begin_src emacs-lisp :tangle modules/languages.el
+(use-package ini-mode
+  :ensure t
+  :config
+   (add-to-list 'auto-mode-alist '("\\.ini\\'" . ini-mode))) 
+#+end_src 
 Emacs has out of the box support for treesitter, treesit-auto makes it
 
 easy to download the language libraries:

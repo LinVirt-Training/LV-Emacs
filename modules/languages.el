@@ -38,6 +38,11 @@
     (yaml-ts-mode . highlight-indentation-mode)
     (yaml-mode . yaml-pro-ts-mode)))
 
+(use-package ini-mode
+  :ensure t
+  :config
+   (add-to-list 'auto-mode-alist '("\\.ini\\'" . ini-mode)))
+
 (use-package treesit-auto
   :ensure t
   :custom
